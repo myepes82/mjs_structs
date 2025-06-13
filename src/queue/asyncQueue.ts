@@ -1,6 +1,4 @@
-
-
-type QueueEvent = 'success' | 'error' | 'end'
+type QueueEvent = 'started' | 'success' | 'error' | 'end'
 type QueueResultError = 'maxConcurrent' | 'maxQueueSize' | 'error';
 
 export interface QueueElement<T> {
@@ -14,6 +12,7 @@ export interface QueueElementError {
 }
 
 export interface AsyncQueueOptions {
+    maxConcurrent: number;
     maxQueueSize: number;
     maxRetries: number;
     retryDelay: number;
@@ -25,7 +24,8 @@ export class AsyncQueue<T> {
 
     private readonly options: AsyncQueueOptions;
 
-    private readonly handlers: Record<QueueEvent, (item: QueueElement<T>) => void> = {
+    private readonly handlers: Record<QueueEvent, (item: QueueElement<T> ) => void> = {
+        started: () => {},
         success: () => {},
         error: () => {},
         end: () => {},
@@ -33,6 +33,7 @@ export class AsyncQueue<T> {
 
     constructor(options?: AsyncQueueOptions) {
         this.options = options ?? {
+            maxConcurrent: 1,
             maxQueueSize: 1000,
             maxRetries: 0,
             retryDelay: 1000,
@@ -108,32 +109,69 @@ export class AsyncQueue<T> {
     }
 
     public async consume(processFn: (item: T) => Promise<void>): Promise<void> {
-        while (!this.isEmpty()) {
+        const maxConcurrent = this.options.maxConcurrent ?? 1;
 
-            const element = this.dequeue();
-
-            if (!element) continue;
-
-            if (this.options.maxRetries === 0) {
-                try {
-                    await processFn(element.item);
-                    this.handlers.success(element);
-                } catch (err) {
-                    this.handlers.error({
-                        ...element,
-                        error: {
-                            errorType: 'error',
-                            errorMessage: (err as Error)?.message || 'Unknown error',
-                        },
-                    });
+        if (maxConcurrent <= 1) {
+            while (!this.isEmpty()) {
+                const element = this.dequeue();
+                if (!element) continue;
+    
+                this.handlers.started({ item: element.item });
+    
+                if (this.options.maxRetries === 0) {
+                    try {
+                        await processFn(element.item);
+                        this.handlers.success(element);
+                    } catch (err) {
+                        this.handlers.error({
+                            ...element,
+                            error: {
+                                errorType: 'error',
+                                errorMessage: (err as Error)?.message || 'Unknown error',
+                            },
+                        });
+                    }
+                } else {
+                    await this.processWithRetries(element, processFn);
                 }
-                continue;
+            }
+        } else {
+            const workers: Promise<void>[] = [];
+    
+            const worker = async (): Promise<void> => {
+                // eslint-disable-next-line no-constant-condition
+                while (true) {
+                    const element = this.dequeue();
+                    if (!element) break;
+    
+                    this.handlers.started({ item: element.item });
+    
+                    try {
+                        if (this.options.maxRetries === 0) {
+                            await processFn(element.item);
+                            this.handlers.success(element);
+                        } else {
+                            await this.processWithRetries(element, processFn);
+                        }
+                    } catch (err) {
+                        this.handlers.error({
+                            ...element,
+                            error: {
+                                errorType: 'error',
+                                errorMessage: (err as Error)?.message || 'Unknown error',
+                            },
+                        });
+                    }
+                }
+            };
+
+            for (let i = 0; i < maxConcurrent; i++) {
+                workers.push(worker());
             }
 
-            await this.processWithRetries(element, processFn);
+            await Promise.all(workers);
         }
-    
-        this.handlers.end({ item: null as any });
+
+        this.handlers.end({ item: null as unknown as T });
     }
-    
 }

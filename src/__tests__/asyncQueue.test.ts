@@ -15,6 +15,7 @@ describe('AsyncQueue', () => {
 
         test('should create queue with custom options', () => {
             const customQueue = new AsyncQueue<number>({
+                maxConcurrent: 3,
                 maxQueueSize: 5,
                 maxRetries: 3,
                 retryDelay: 500
@@ -40,7 +41,12 @@ describe('AsyncQueue', () => {
 
     describe('Queue Size Limits', () => {
         test('should respect maxQueueSize limit', () => {
-            const smallQueue = new AsyncQueue<number>({ maxQueueSize: 2, maxRetries: 0, retryDelay: 1000 });
+            const smallQueue = new AsyncQueue<number>({ 
+                maxConcurrent: 1,
+                maxQueueSize: 2, 
+                maxRetries: 0, 
+                retryDelay: 1000 
+            });
             let errorCalled = false;
 
             smallQueue.setEventHandler('error', (element) => {
@@ -59,27 +65,41 @@ describe('AsyncQueue', () => {
     });
 
     describe('Event Handlers', () => {
-        test('should call success handler when item is processed successfully', async () => {
-            let successCalled = false;
-            queue.setEventHandler('success', () => {
-                successCalled = true;
+        test('should call started handler for each item', async () => {
+            const startedItems: number[] = [];
+            queue.setEventHandler('started', (element) => {
+                startedItems.push(element.item);
             });
 
             queue.enqueue(1);
-            await queue.consume(async (item) => {
-                console.log('Processing item', item);
+            queue.enqueue(2);
+            await queue.consume(async () => {
+                await new Promise(resolve => setTimeout(resolve, 100));
             });
 
-            expect(successCalled).toBe(true);
+            expect(startedItems).toEqual([1, 2]);
+        });
+
+        test('should call success handler when item is processed successfully', async () => {
+            const successItems: number[] = [];
+            queue.setEventHandler('success', (element) => {
+                successItems.push(element.item);
+            });
+
+            queue.enqueue(1);
+            queue.enqueue(2);
+            await queue.consume(async () => {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            });
+
+            expect(successItems).toEqual([1, 2]);
         });
 
         test('should call error handler when processing fails', async () => {
-
-            let errorCalled = false;
-
+            const errorItems: number[] = [];
             queue.setEventHandler('error', (element) => {
                 if (element.error?.errorType === 'error') {
-                    errorCalled = true;
+                    errorItems.push(element.item);
                 }
             });
 
@@ -88,28 +108,86 @@ describe('AsyncQueue', () => {
                 throw new Error('Processing failed');
             });
 
-            expect(errorCalled).toBe(true);
+            expect(errorItems).toEqual([1]);
         });
 
         test('should call end handler when queue is empty', async () => {
             let endCalled = false;
-
             queue.setEventHandler('end', () => {
                 endCalled = true;
             });
 
             queue.enqueue(1);
-            await queue.consume(async (item) => {
-                console.log('Processing item', item);
+            await queue.consume(async () => {
+                await new Promise(resolve => setTimeout(resolve, 100));
             });
 
             expect(endCalled).toBe(true);
         });
     });
 
+    describe('Concurrent Processing', () => {
+        test('should process items concurrently when maxConcurrent > 1', async () => {
+            const concurrentQueue = new AsyncQueue<number>({
+                maxConcurrent: 3,
+                maxQueueSize: 1000,
+                maxRetries: 0,
+                retryDelay: 100
+            });
+
+            const processingOrder: number[] = [];
+            const processingTimes: number[] = [];
+
+            for (let i = 0; i < 6; i++) {
+                concurrentQueue.enqueue(i);
+            }
+
+            await concurrentQueue.consume(async (item) => {
+                const startTime = Date.now();
+                await new Promise(resolve => setTimeout(resolve, 200));
+                processingOrder.push(item);
+                processingTimes.push(Date.now() - startTime);
+            });
+
+            expect(processingOrder.length).toBe(6);
+            const totalTime = Math.max(...processingTimes);
+            expect(totalTime).toBeLessThan(1200);
+        });
+
+        test('should handle errors in concurrent processing', async () => {
+            const concurrentQueue = new AsyncQueue<number>({
+                maxConcurrent: 3,
+                maxQueueSize: 1000,
+                maxRetries: 0,
+                retryDelay: 100
+            });
+
+            const errorItems: number[] = [];
+            concurrentQueue.setEventHandler('error', (element) => {
+                if (element.error?.errorType === 'error') {
+                    errorItems.push(element.item);
+                }
+            });
+
+            for (let i = 0; i < 6; i++) {
+                concurrentQueue.enqueue(i);
+            }
+
+            await concurrentQueue.consume(async (item) => {
+                if (item % 2 === 0) {
+                    throw new Error('Processing failed');
+                }
+                await new Promise(resolve => setTimeout(resolve, 100));
+            });
+
+            expect(errorItems).toEqual([0, 2, 4]);
+        });
+    });
+
     describe('Retry Mechanism', () => {
         test('should retry failed operations when maxRetries > 0', async () => {
             const retryQueue = new AsyncQueue<number>({
+                maxConcurrent: 1,
                 maxQueueSize: 1000,
                 maxRetries: 2,
                 retryDelay: 100
@@ -136,6 +214,7 @@ describe('AsyncQueue', () => {
 
         test('should fail after max retries exceeded', async () => {
             const retryQueue = new AsyncQueue<number>({
+                maxConcurrent: 1,
                 maxQueueSize: 1000,
                 maxRetries: 2,
                 retryDelay: 100
