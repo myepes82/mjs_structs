@@ -1,6 +1,6 @@
 {
   "name": "mjs_structs",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "mjs_structs is a base package for working with common data structures easier than manually.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
