@@ -72,6 +72,49 @@ await list.forEach(async (node) => {
 
 **Use Case:** Dynamic data storage with efficient insertions and deletions.
 
+## 📊 Benchmark: Processing Strategies Comparison
+
+A benchmark was conducted to compare three different approaches for handling 100 HTTP requests (`axios.get`) using various concurrency strategies.
+
+| Method                        | Time (ms) | RSS (MB) | Heap Total (MB) | Heap Used (MB) |
+|------------------------------|-----------|----------|------------------|----------------|
+| `AsyncQueue` (sequential)    | 13,593.81 | 63.77    | 13.37            | 8.97           |
+| `AsyncQueueConcurrent (x5)`  | 6,182.20  | 72.10    | 18.87            | 8.49           |
+| `for` loop (sequential)      | 8,260.19  | 73.00    | 26.87            | 11.85          |
+
+> 📌 Note: RSS = total memory used by the process (resident set size)
+
+---
+
+### ✅ Conclusions
+
+- **`AsyncQueueConcurrent` with `maxConcurrent: 5` was the fastest**, maintaining a reasonable memory profile. It is ideal for asynchronous I/O-bound tasks such as HTTP requests.
+- The **sequential `for` loop** was slower and used more memory, likely due to accumulation of data between iterations.
+- **Plain `AsyncQueue`** had the slowest execution time but the lowest overall memory usage, making it suitable for environments with tight memory constraints.
+
+---
+
+### 🧠 Recommended Use Cases
+
+| Scenario                                         | Recommended Method                  |
+|--------------------------------------------------|-------------------------------------|
+| High control over error handling and events      | `AsyncQueue`                        |
+| Parallel processing with load limiting           | `AsyncQueueConcurrent (maxConcurrent > 1)` |
+| Simple flows with minimal complexity             | `for` loop (sequential)             |
+
+---
+
+### ⚙️ Enabling Concurrency in `AsyncQueue`
+
+```ts
+const queue = new AsyncQueue({
+  maxConcurrent: 5, // Number of concurrent tasks
+  maxQueueSize: 1000,
+  maxRetries: 0,
+  retryDelay: 1000,
+});
+```
+
 ## Development
 
 1. Clone the repository
