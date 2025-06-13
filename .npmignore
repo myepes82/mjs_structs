@@ -1,0 +1,33 @@
+# Source files
+src/
+
+# Test files
+__tests__/
+
+# Configuration files
+tsconfig.json
+jest.config.js
+.eslintrc.json
+
+# Development files
+.gitignore
+.npmignore
+README.md
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db 

@@ -5,10 +5,10 @@ type QueueResultError = 'maxConcurrent' | 'maxQueueSize' | 'error';
 
 export interface QueueElement<T> {
     item: T;
-    error?: QueueElementError<T>;
+    error?: QueueElementError;
 }
 
-export interface QueueElementError<T> {
+export interface QueueElementError {
     errorType: QueueResultError;
     errorMessage: string;
 }
