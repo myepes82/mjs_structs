@@ -111,6 +111,55 @@ await asyncQueue.start();
 
 **Use Case:** Asynchronous task processing with retry mechanism and concurrency control.
 
+### Stack
+A LIFO (Last In, First Out) stack implementation with async iteration support.
+
+```typescript
+import { Stack } from 'mjs_structs';
+
+const stack = new Stack<number>();
+stack.push(1);
+stack.push(2);
+stack.push(3);
+
+console.log(stack.pop()); // 3
+console.log(stack.peek()); // 2
+
+// Async iteration with error handling
+await stack.forEach(
+    async (item) => {
+        console.log(item);
+    },
+    async (item, index, error) => {
+        console.error(`Error processing item ${item} at index ${index}: ${error.message}`);
+    }
+);
+```
+
+**Features:**
+- Generic type support
+- LIFO ordering
+- Async iteration
+- Error handling in iteration
+- Simple and efficient operations
+
+**Methods:**
+- `push(item: T): void` - Add item to stack
+- `pop(): T | undefined` - Remove and return top item
+- `peek(): T | undefined` - View top item without removing
+- `size(): number` - Get stack length
+- `isEmpty(): boolean` - Check if stack is empty
+- `forEach(callback: (item: T, index: number) => Promise<void>, errorCallback?: (item: T, index: number, error: Error) => Promise<void>): Promise<void>` - Async iteration
+
+**Complexity:**
+- Push: O(1)
+- Pop: O(1)
+- Peek: O(1)
+- Size: O(1)
+- ForEach: O(n) where n is number of items
+
+**Use Case:** Function call stack, undo operations, expression evaluation.
+
 ### LinkedList
 A singly linked list implementation with async iteration support.
 

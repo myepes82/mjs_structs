@@ -42,7 +42,7 @@ export class LinkedList<T> {
 
     public async forEach(
         callback: (node: LinkedListNode<T>, index: number) => Promise<void>,
-        errorCallback?: (node: LinkedListNode<T>, index: number) => Promise<void>
+        errorCallback?: (node: LinkedListNode<T>, index: number, error: Error) => Promise<void>
     ): Promise<void> {
         let current = this.head;
         let index = 0;
@@ -52,7 +52,7 @@ export class LinkedList<T> {
                 await callback(current, index);
             } catch (error) {
                 if (errorCallback) {
-                    await errorCallback(current, index);
+                    await errorCallback(current, index, error as Error);
                 }
             }
             current = current.next;
