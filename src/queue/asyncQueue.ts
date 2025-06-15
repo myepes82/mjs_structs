@@ -1,4 +1,3 @@
-type QueueEvent = 'started' | 'success' | 'error' | 'end';
 type QueueResultError = 'maxConcurrent' | 'maxQueueSize' | 'error' | 'timeout';
 
 export interface QueueElement<T> {
@@ -196,7 +195,8 @@ export class AsyncQueue<T> {
         const workers: Promise<void>[] = [];
 
         for (let i = 0; i < maxConcurrent; i++) {
-            workers.push((async () => {
+            workers.push((async (): Promise<void> => {
+                // eslint-disable-next-line no-constant-condition
                 while (true) {
                     const element = this.dequeue();
                     if (!element) break;

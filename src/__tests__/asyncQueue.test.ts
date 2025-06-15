@@ -149,7 +149,7 @@ describe('AsyncQueue', () => {
     });
 
     it('should call event handlers in correct order', async () => {
-        queue.setConsumer(async (item) => {
+        queue.setConsumer(async () => {
             await new Promise(resolve => setTimeout(resolve, 50));
         });
 
